@@ -23,6 +23,11 @@
 set -e
 set -o pipefail
 
+if ! tlmgr --version >/dev/null 2>&1; then
+  PATH=$PATH:$("${LOCAL}/help/texlive-bin.sh")
+  export PATH
+fi
+
 list=${TARGET}/temp/list-of-metrics.tex
 rm -f "${list}"
 

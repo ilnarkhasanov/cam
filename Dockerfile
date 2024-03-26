@@ -24,7 +24,7 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-SHELL ["/bin/bash", "--login", "-c"]
+SHELL ["/bin/bash", "-eo", "pipefail", "-c"]
 
 # Build essentials that are required later
 RUN apt-get update -y --fix-missing \
@@ -49,6 +49,15 @@ RUN apt-get update -y --fix-missing \
     xpdf=3.04+git20220201-1 \
     coreutils=8.32-4.1ubuntu1.1 \
     gawk=1:5.1.0-1ubuntu0.1 \
+    git=1:2.34.1-1ubuntu1.10 \
+    libxml2-utils=2.9.13+dfsg-1ubuntu0.4 \
+    build-essential=12.9ubuntu3 \
+    cmake=3.22.1-1ubuntu1.22.04.2 \
+    libfreetype6-dev=2.11.1+dfsg-1ubuntu0.2 \
+    pkg-config=0.29.2-1ubuntu3 \
+    libfontconfig-dev=2.13.1-4.2ubuntu5 \
+    libjpeg-dev=8c-2ubuntu10 \
+    libopenjp2-7-dev=2.4.0-6 \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -61,11 +70,33 @@ RUN apt-get update -y --fix-missing \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-# Ruby + Java
+# LaTeX
+RUN wget --quiet http://mirror.ctan.org/systems/texlive/tlnet/install-tl.zip \
+  && unzip install-tl.zip -d install-tl \
+  && name=$(find install-tl/ -type d -name "install-tl-*" -exec basename {} \;) \
+  && year=${name:11:4} \
+  && perl "./install-tl/${name}/install-tl" --scheme=scheme-medium --no-interaction \
+  && arc=$(find "/usr/local/texlive/${year}/bin" -type d -name "*-linux" -exec basename {} \;) \
+  && bin=/usr/local/texlive/${year}/bin/${arc} \
+  && export PATH=${PATH}:${bin} \
+  && echo "export PATH=\${PATH}:${bin}" > /etc/profile.d/texlive.sh \
+  && chmod a+x /etc/profile.d/texlive.sh \
+  && tlmgr init-usertree \
+  && tlmgr install latexmk \
+  && rm -rf install-tl execs.txt
+
+# Ruby
 RUN apt-get update -y --fix-missing \
   && apt-get -y install --no-install-recommends \
     ruby-full=1:3.0~exp1 \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+# Java + Maven
+RUN apt-get update -y --fix-missing \
+  && apt-get -y install --no-install-recommends \
     openjdk-17-jdk=17.0.10+7-1~22.04.1 \
+    maven=3.6.3-5 \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -79,21 +110,6 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-# LaTeX
-RUN wget --quiet http://mirror.ctan.org/systems/texlive/tlnet/install-tl.zip \
-  && unzip install-tl.zip -d install-tl \
-  && name=$(find install-tl/ -type d -name 'install-tl-*' -exec basename {} \;) \
-  && year=${name:11:4} \
-  && export year \
-  && perl "./install-tl/${name}/install-tl" --scheme=scheme-medium --no-interaction \
-  && arc=$(find "/usr/local/texlive/${year}/bin" -type d -name '*-linux' -exec basename {} \;) \
-  && export arc \
-  && PATH=${PATH}:/usr/local/texlive/${year}/bin/${arc} \
-  && echo "export PATH=\${PATH}:/usr/local/texlive/${year}/bin/${arc}" >> /root/.profile \
-  && tlmgr init-usertree \
-  && tlmgr install latexmk
-ENV PATH "$PATH:/usr/local/texlive/$year/bin/$arc"
-
 WORKDIR /cam
 COPY Makefile /cam
 COPY requirements.txt /cam
@@ -101,6 +117,30 @@ COPY DEPENDS.txt /cam
 COPY steps/install.sh /cam/steps/
 COPY help/* /cam/help/
 
-RUN make install
+ENV LOCAL /cam
+
+COPY installs/install-texlive.sh /cam/installs/install-texlive.sh
+RUN installs/install-texlive.sh
+
+COPY installs/install-pmd.sh /cam/installs/install-pmd.sh
+RUN installs/install-pmd.sh
+
+COPY installs/install-gradle.sh /cam/installs/install-gradle.sh
+RUN installs/install-gradle.sh
+ENV GRADLE_LOCAL /usr/local/gradle
+ENV PATH $PATH:/usr/local/gradle/bin
+
+COPY installs/install-gem.sh /cam/installs/install-gem.sh
+RUN installs/install-gem.sh
+
+COPY installs/install-jpeek.sh /cam/installs/install-jpeek.sh
+ENV JPEEK /opt/app/jpeek.jar
+RUN installs/install-jpeek.sh
+
+COPY installs/install-pip.sh /cam/installs/install-pip.sh
+RUN installs/install-pip.sh
+
+COPY installs/install-poppler.sh /cam/installs/install-poppler.sh
+RUN installs/install-poppler.sh
 
 COPY . /cam

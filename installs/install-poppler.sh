@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The MIT License (MIT)
+# MIT License
 #
 # Copyright (c) 2021-2024 Yegor Bugayenko
 #
@@ -10,12 +10,12 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included
-# in all copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
@@ -24,27 +24,23 @@
 set -e
 set -o pipefail
 
-home=$1
-temp=$2
+tmp=$(mktemp -d)
+mkdir -p "${tmp}"
+cd "${tmp}"
 
-list=${temp}/deleted-empty-directories.txt
-mkdir -p "$(dirname "${list}")"
-touch "${list}"
+wget --quiet https://poppler.freedesktop.org/poppler-data-0.4.9.tar.gz
+tar -xf poppler-data-0.4.9.tar.gz
+cd poppler-data-0.4.9
+make install
+cd ..
 
-while true; do
-    slice=${temp}/empty-directories-to-delete.txt
-    find "${home}" -mindepth 1 -type d -empty -print > "${slice}"
-    if [ ! -s "${slice}" ]; then break; fi
-    while IFS= read -r dir; do
-        rm -r "${dir}"
-        echo "${dir}" >> "${list}"
-    done < "${slice}"
-done
+wget --quiet https://poppler.freedesktop.org/poppler-20.08.0.tar.xz
+tar -xf poppler-20.08.0.tar.xz
+cd poppler-20.08.0
+mkdir build
+cd build
+cmake ..
 
-total=$(wc -l < "${list}" | xargs)
-if [ "${total}" -eq 0 ]; then
-    printf "There were no empty directories"
-else
-    printf "%'d empty directories were deleted" "${total}"
-fi
-
+make
+make install
+ldconfig

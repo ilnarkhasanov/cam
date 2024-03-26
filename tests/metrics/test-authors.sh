@@ -34,9 +34,8 @@ stdout=$2
 echo "👍🏻 Didn't fail in non-git directory"
 
 {
-    cd "${temp}"
-    rm -rf ./*
-    rm -rf .git
+    mkdir -p "${temp}/foo"
+    cd "${temp}/foo"
     git init --quiet .
     git config user.email 'foo@example.com'
     git config user.name 'Foo'
